@@ -198,6 +198,13 @@ func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pname
 		// Otherwise, it must either be a live property or we don't know it.
 		if prop := liveProps[pn]; prop.findFn != nil && (prop.dir || !isDir) {
 			innerXML, err := prop.findFn(ctx, fs, ls, name, fi)
+			if err == ErrNotImplemented {
+				pstatNotFound.Props = append(pstatNotFound.Props, Property{
+					XMLName: pn,
+				})
+
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
