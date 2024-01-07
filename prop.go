@@ -165,6 +165,10 @@ var liveProps = map[xml.Name]struct {
 		findFn: findOCChecksums,
 		dir:    false,
 	},
+	{Space: "ME:", Local: "sha1hex"}: {
+		findFn: findMESHA1,
+		dir:    false,
+	},
 }
 
 // TODO(nigeltao) merge props and allprop?
@@ -533,6 +537,25 @@ func findOCChecksums(ctx context.Context, fs FileSystem, ls LockSystem, name str
 		}
 
 		return checksums, nil
+	}
+
+	return "", ErrNotImplemented
+}
+
+func findMESHA1(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if do, ok := fi.(Hasher); ok {
+		hashes, err := do.Hashes(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		for hashType, hashValue := range hashes {
+			hashType = strings.ToUpper(hashType)
+
+			if hashType == "SHA1" {
+				return strings.ToLower(hashValue), nil
+			}
+		}
 	}
 
 	return "", ErrNotImplemented
