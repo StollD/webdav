@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 // Proppatch describes a property update instruction as defined in RFC 4918.
@@ -466,4 +467,27 @@ func findSupportedLock(ctx context.Context, fs FileSystem, ls LockSystem, name s
 		`<D:lockscope><D:exclusive/></D:lockscope>` +
 		`<D:locktype><D:write/></D:locktype>` +
 		`</D:lockentry>`, nil
+}
+
+// ModTime is an optional interface for the webdav.File objects
+// returned by the FileSystem.
+//
+// If this interface is defined then it will be used to set the
+// modification time when writing to the file.
+type ModTime interface {
+	// SetModTime sets the modification time of the file.
+	//
+	// If this returns error ErrNotImplemented then the error will be ignored.
+	SetModTime(ctx context.Context, modTime time.Time) error
+}
+
+func setModTime(ctx context.Context, fi File, modTime time.Time) error {
+	if do, ok := fi.(ModTime); ok {
+		err := do.SetModTime(ctx, modTime)
+		if err != ErrNotImplemented {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -272,6 +273,14 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 	f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return http.StatusNotFound, err
+	}
+	hdrModTime := r.Header.Get("X-OC-MTime")
+	if modTime, err := strconv.ParseInt(hdrModTime, 10, 64); err == nil {
+		err := setModTime(ctx, f, time.Unix(modTime, 0))
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		w.Header().Set("X-OC-MTime", "accepted")
 	}
 	_, copyErr := io.Copy(f, r.Body)
 	fi, statErr := f.Stat()
