@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -158,6 +159,11 @@ var liveProps = map[xml.Name]struct {
 	{Space: "DAV:", Local: "supportedlock"}: {
 		findFn: findSupportedLock,
 		dir:    true,
+	},
+
+	{Space: "http://owncloud.org/ns", Local: "checksums"}: {
+		findFn: findOCChecksums,
+		dir:    false,
 	},
 }
 
@@ -497,4 +503,37 @@ func setModTime(ctx context.Context, fi File, modTime time.Time) error {
 	}
 
 	return nil
+}
+
+// Hasher is an optional interface for the os.FileInfo objects
+// returned by the FileSystem.
+//
+// If this interface is defined, then it will be used to read the
+// available checksums for the object.
+type Hasher interface {
+	// Hashes returns the available hashes of the file.
+	// The expected format is type => value, e.g. SHA1 => sha1 of file (hex).
+	//
+	// If this returns error ErrNotImplemented then the error will be ignored.
+	Hashes(ctx context.Context) (map[string]string, error)
+}
+
+func findOCChecksums(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
+	if do, ok := fi.(Hasher); ok {
+		hashes, err := do.Hashes(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		checksums := ""
+		const ChecksumFmt = "<checksum xmlns=\"http://owncloud.org/ns\">%s:%s</checksum>"
+
+		for hashType, hashValue := range hashes {
+			checksums += fmt.Sprintf(ChecksumFmt, strings.ToUpper(hashType), strings.ToLower(hashValue))
+		}
+
+		return checksums, nil
+	}
+
+	return "", ErrNotImplemented
 }
